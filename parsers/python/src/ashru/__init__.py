@@ -1,21 +1,27 @@
 """
-ASHRU/1 reference parser — Python.
+ashru — Pāṇini grammar in 10 columns. One pipe row → one sentence.
 
-Released under MIT. See LICENSE in the repo root.
+Read-only library. ASHRU is a wire format LLMs emit to save tokens; this
+package reads those rows back into Python objects and natural-language
+sentences. Released under MIT.
 
-Usage:
-    from ashru import parse, AshruDocument, Verb
+Quick start:
 
-    doc = parse(text_or_file_handle)
-    for verb in doc.verbs:
-        print(verb.verb_lemma, verb.karta, verb.karma, verb.tense)
+    import ashru
 
-The parser is intentionally tolerant by default: malformed `V|` rows are
-logged via the standard `logging` module and skipped, never crash the
-document. Pass `strict=True` to raise on the first malformed row.
+    # 1. Add ashru.PROMPT_INSTRUCTION to your existing LLM call
+    response = my_llm.generate(ashru.PROMPT_INSTRUCTION + "\\n\\n" + question)
 
-The header `ASHRU/1` is the only hard requirement — every document MUST
-start with that line. Comments (`#`) and blank lines are ignored.
+    # 2. Parse the LLM's reply
+    doc = ashru.parse(response)
+
+    # 3. Read each fact as Python or as English
+    for v in doc.verbs:
+        print(v.karta, v.verb_lemma, v.karma)   # structured
+        print(ashru.to_sentence(v))             # English sentence
+
+The first line of every document MUST be `ASHRU/1`. Comments start with `#`.
+Malformed rows are logged and skipped (use `strict=True` to raise instead).
 """
 
 from __future__ import annotations
@@ -27,23 +33,51 @@ from typing import Iterable, Iterator, TextIO
 logger = logging.getLogger(__name__)
 
 VERSION = "ASHRU/1"
-VERB_COLUMN_COUNT = 11  # marker "V" + 10 data columns
+VERB_COLUMN_COUNT = 11
 VALID_TENSES = frozenset({"p", "n", "f", "c", ""})
 
+PROMPT_INSTRUCTION = """\
+Output your response as ASHRU/1 — a 10-column pipe-delimited fact format.
 
-# ─── Public dataclasses ────────────────────────────────────────────────
+Each fact = one line. Format:
+V|verb_lemma|karta|karma|karana|sampradana|apadana|adhikarana|tense|negated|attributes
+
+Columns:
+ 1. V          — row marker (always the literal letter V)
+ 2. verb_lemma — base verb, lowercase (e.g. "buy", "deploy", "validate")
+ 3. karta      — agent / who did it
+ 4. karma      — direct object / what was done
+ 5. karana     — instrument (with what)
+ 6. sampradana — recipient (to whom)
+ 7. apadana    — source (from where / from whom)
+ 8. adhikarana — locative (where)
+ 9. tense      — p (past) | n (present) | f (future) | c (conditional)
+10. negated    — 1 if negated, otherwise 0
+11. attributes — k=v;k=v pairs (e.g. date=2026-05-07;amount=60000) or empty
+
+Empty columns are written as adjacent pipes ||. A literal pipe inside a
+value is escaped as \\|. A literal backslash is escaped as \\\\.
+
+The first line of the document MUST be: ASHRU/1
+Do not add prose, JSON, or markdown around the rows. Pipe rows only.
+
+Example:
+ASHRU/1
+V|buy|Suman|Tesla|$60000||John|SF|p|0|date=2026-05-07
+V|deploy|engineer|api||||staging|f|0|
+"""
 
 
 @dataclass
 class Verb:
     verb_lemma: str
-    karta: str | None = None       # kartā — agent
-    karma: str | None = None       # karma — object
-    karana: str | None = None      # karaṇa — instrument
-    sampradana: str | None = None  # sampradāna — recipient
-    apadana: str | None = None     # apādāna — source
-    adhikarana: str | None = None  # adhikaraṇa — locative
-    tense: str | None = None       # 'p' | 'n' | 'f' | 'c' | None
+    karta: str | None = None
+    karma: str | None = None
+    karana: str | None = None
+    sampradana: str | None = None
+    apadana: str | None = None
+    adhikarana: str | None = None
+    tense: str | None = None
     is_negated: bool = False
     attributes: dict[str, str] = field(default_factory=dict)
 
@@ -55,41 +89,125 @@ class AshruDocument:
     skipped_lines: int = 0
 
 
-# ─── Public API ────────────────────────────────────────────────────────
-
-
 def parse(source: str | TextIO, strict: bool = False) -> AshruDocument:
-    """Parse an ASHRU/1 document from a string or file handle.
-
-    Raises ValueError if the version header is missing or unrecognized.
-    If strict=True, raises ValueError on the first malformed row.
-    Otherwise, malformed individual rows are skipped (with a warning).
-    """
-    if hasattr(source, "read"):
-        text = source.read()
-    else:
-        text = source
-    lines = iter(text.splitlines())
-    return _parse_lines(lines, strict=strict)
+    """Parse an ASHRU/1 document from a string or file handle."""
+    text = source.read() if hasattr(source, "read") else source
+    return _parse_lines(iter(text.splitlines()), strict=strict)
 
 
 def parse_lines(lines: Iterable[str], strict: bool = False) -> AshruDocument:
-    """Parse from any iterable of lines (no trailing newlines required)."""
+    """Parse from any iterable of lines."""
     return _parse_lines(iter(lines), strict=strict)
+
+
+def to_sentence(v: Verb) -> str:
+    """Convert one parsed Verb into a readable English sentence."""
+    parts: list[str] = []
+    if v.karta:
+        parts.append(v.karta)
+
+    verb = v.verb_lemma
+    tense = v.tense or "n"
+
+    if tense == "f":
+        parts.extend(["will not", verb] if v.is_negated else ["will", verb])
+    elif tense == "c":
+        parts.extend(["would not", verb] if v.is_negated else ["would", verb])
+    elif tense == "p":
+        if v.is_negated:
+            parts.extend(["did not", verb])
+        else:
+            parts.append(_past(verb))
+    else:  # present
+        if v.is_negated:
+            parts.extend(["does not", verb])
+        else:
+            parts.append(_present(verb, v.karta))
+
+    if v.karma:
+        parts.append(v.karma)
+    if v.karana:
+        parts.append(f"with {v.karana}")
+    if v.sampradana:
+        parts.append(f"to {v.sampradana}")
+    if v.apadana:
+        parts.append(f"from {v.apadana}")
+    if v.adhikarana:
+        parts.append(f"at {v.adhikarana}")
+
+    sentence = " ".join(parts)
+    if v.attributes:
+        attrs = ", ".join(f"{k}={x}" for k, x in v.attributes.items())
+        sentence = f"{sentence} ({attrs})"
+    return sentence + "."
 
 
 # ─── Internal ──────────────────────────────────────────────────────────
 
 
+_IRREGULAR_PAST = {
+    "be": "was", "begin": "began", "break": "broke", "bring": "brought",
+    "build": "built", "buy": "bought", "catch": "caught", "choose": "chose",
+    "come": "came", "cost": "cost", "cut": "cut", "deal": "dealt",
+    "do": "did", "draw": "drew", "drink": "drank", "drive": "drove",
+    "eat": "ate", "fall": "fell", "feed": "fed", "feel": "felt",
+    "fight": "fought", "find": "found", "fly": "flew", "forget": "forgot",
+    "get": "got", "give": "gave", "go": "went", "grow": "grew",
+    "have": "had", "hear": "heard", "hit": "hit", "hold": "held",
+    "keep": "kept", "know": "knew", "leave": "left", "lend": "lent",
+    "let": "let", "lose": "lost", "make": "made", "mean": "meant",
+    "meet": "met", "pay": "paid", "put": "put", "read": "read",
+    "ride": "rode", "ring": "rang", "rise": "rose", "run": "ran",
+    "say": "said", "see": "saw", "sell": "sold", "send": "sent",
+    "set": "set", "shut": "shut", "sing": "sang", "sit": "sat",
+    "sleep": "slept", "speak": "spoke", "spend": "spent", "stand": "stood",
+    "swim": "swam", "take": "took", "teach": "taught", "tell": "told",
+    "think": "thought", "throw": "threw", "understand": "understood",
+    "wake": "woke", "wear": "wore", "win": "won", "write": "wrote",
+}
+
+_IRREGULAR_PRESENT_3RD = {
+    "be": "is", "have": "has", "do": "does", "go": "goes",
+}
+
+
+def _past(lemma: str) -> str:
+    if lemma in _IRREGULAR_PAST:
+        return _IRREGULAR_PAST[lemma]
+    if lemma.endswith("e"):
+        return lemma + "d"
+    if (len(lemma) > 1 and lemma.endswith("y")
+            and lemma[-2] not in "aeiou"):
+        return lemma[:-1] + "ied"
+    return lemma + "ed"
+
+
+def _present(lemma: str, subject: str | None) -> str:
+    """Third-person singular only when the subject looks singular."""
+    if not subject or _looks_plural(subject):
+        return lemma
+    if lemma in _IRREGULAR_PRESENT_3RD:
+        return _IRREGULAR_PRESENT_3RD[lemma]
+    if lemma.endswith(("s", "x", "z", "ch", "sh")):
+        return lemma + "es"
+    if (len(lemma) > 1 and lemma.endswith("y")
+            and lemma[-2] not in "aeiou"):
+        return lemma[:-1] + "ies"
+    return lemma + "s"
+
+
+def _looks_plural(subject: str) -> bool:
+    s = subject.strip().lower()
+    return s in {"we", "they", "you", "i"} or s.endswith("s")
+
+
 def _parse_lines(lines: Iterator[str], strict: bool = False) -> AshruDocument:
-    # First non-empty non-comment line MUST be the version header.
     header = ""
-    for line in lines:
-        line = line.rstrip("\r\n")
-        stripped = line.strip()
-        if stripped == "" or stripped.startswith("#"):
+    for raw in lines:
+        line = raw.rstrip("\r\n").strip()
+        if not line or line.startswith("#"):
             continue
-        header = stripped
+        header = line
         break
     if header != VERSION:
         raise ValueError(
@@ -98,41 +216,34 @@ def _parse_lines(lines: Iterator[str], strict: bool = False) -> AshruDocument:
         )
 
     doc = AshruDocument(version=VERSION)
-
     for raw in lines:
         line = raw.rstrip("\r\n")
         stripped = line.strip()
-        if not stripped:
+        if not stripped or stripped.startswith("#"):
             continue
-        if stripped.startswith("#"):
-            continue  # comment
-
         if line.startswith("V|"):
-            verb = _parse_verb_line(line, strict=strict)
-            if verb is None:
+            v = _parse_verb_line(line, strict=strict)
+            if v is None:
                 doc.skipped_lines += 1
             else:
-                doc.verbs.append(verb)
+                doc.verbs.append(v)
             continue
-
-        # Unknown leading marker → silently skip (LLM may emit prose) or raise if strict.
         if strict:
             raise ValueError(f"Unknown leading marker in row: {line!r}")
         doc.skipped_lines += 1
-
     return doc
 
 
 def _parse_verb_line(line: str, strict: bool = False) -> Verb | None:
-    """Parse a single V|... line. Returns None and logs on malformed input. Raises ValueError if strict=True."""
     cols = _split_with_escapes(line)
     if len(cols) != VERB_COLUMN_COUNT:
-        msg = f"Malformed V| row (expected {VERB_COLUMN_COUNT} columns, got {len(cols)}): {line[:200]!r}"
+        msg = (f"Malformed V| row (expected {VERB_COLUMN_COUNT} columns, "
+               f"got {len(cols)}): {line[:200]!r}")
         if strict:
             raise ValueError(msg)
         logger.warning("Skipping %s", msg)
         return None
-    _, lemma, karta, karma, karana, sampradana, apadana, adhikarana, tense, negated, attrs = cols
+    _, lemma, karta, karma, karana, sampradana, apadana, adhikarana, tense, neg, attrs = cols
     if not lemma:
         if strict:
             raise ValueError(f"Empty verb_lemma in row: {line[:200]!r}")
@@ -141,10 +252,8 @@ def _parse_verb_line(line: str, strict: bool = False) -> Verb | None:
     if tense and tense not in VALID_TENSES:
         if strict:
             raise ValueError(f"Unknown tense {tense!r} in row: {line[:200]!r}")
-        logger.warning("Unknown tense %r in row, storing as None", tense)
+        logger.warning("Unknown tense %r, storing as None", tense)
         tense = ""
-    is_negated = negated.strip() == "1"
-    attributes = _parse_attributes(attrs)
     return Verb(
         verb_lemma=lemma.strip().lower(),
         karta=_n(karta),
@@ -154,13 +263,12 @@ def _parse_verb_line(line: str, strict: bool = False) -> Verb | None:
         apadana=_n(apadana),
         adhikarana=_n(adhikarana),
         tense=_n(tense),
-        is_negated=is_negated,
-        attributes=attributes,
+        is_negated=neg.strip() == "1",
+        attributes=_parse_attributes(attrs),
     )
 
 
 def _split_with_escapes(line: str) -> list[str]:
-    """Split on '|' but respect '\\|' escape and '\\\\' double-backslash."""
     out: list[str] = []
     buf: list[str] = []
     i = 0
@@ -168,12 +276,8 @@ def _split_with_escapes(line: str) -> list[str]:
         c = line[i]
         if c == "\\" and i + 1 < len(line):
             nxt = line[i + 1]
-            if nxt == "|":
-                buf.append("|")
-                i += 2
-                continue
-            if nxt == "\\":
-                buf.append("\\")
+            if nxt in ("|", "\\"):
+                buf.append(nxt)
                 i += 2
                 continue
         if c == "|":
@@ -188,7 +292,6 @@ def _split_with_escapes(line: str) -> list[str]:
 
 
 def _parse_attributes(s: str) -> dict[str, str]:
-    """Parse 'k1=v1;k2=v2' into a dict. Tolerate empty input + malformed pairs."""
     s = s.strip()
     if not s:
         return {}
@@ -205,47 +308,8 @@ def _parse_attributes(s: str) -> dict[str, str]:
 
 
 def _n(s: str) -> str | None:
-    """Empty string → None; otherwise stripped string."""
     s = s.strip()
     return s if s else None
-
-
-# ─── Encoder (round-trip support) ──────────────────────────────────────
-
-
-def encode(doc: AshruDocument) -> str:
-    """Encode an AshruDocument back into ASHRU/1 wire format."""
-    lines = [VERSION]
-    for v in doc.verbs:
-        lines.append(_encode_verb(v))
-    return "\n".join(lines) + "\n"
-
-
-def _encode_verb(v: Verb) -> str:
-    cols = [
-        "V",
-        v.verb_lemma,
-        v.karta or "",
-        v.karma or "",
-        v.karana or "",
-        v.sampradana or "",
-        v.apadana or "",
-        v.adhikarana or "",
-        v.tense or "",
-        "1" if v.is_negated else "0",
-        _encode_attrs(v.attributes),
-    ]
-    return "|".join(_escape(c) for c in cols)
-
-
-def _escape(s: str) -> str:
-    return s.replace("\\", "\\\\").replace("|", "\\|")
-
-
-def _encode_attrs(attrs: dict[str, str]) -> str:
-    if not attrs:
-        return ""
-    return ";".join(f"{k}={v}" for k, v in attrs.items())
 
 
 __all__ = [
@@ -253,6 +317,7 @@ __all__ = [
     "AshruDocument",
     "parse",
     "parse_lines",
-    "encode",
+    "to_sentence",
+    "PROMPT_INSTRUCTION",
     "VERSION",
 ]

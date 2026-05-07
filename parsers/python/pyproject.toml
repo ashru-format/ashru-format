@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "ashru"
 version = "1.0.0"
-description = "ASHRU Semantic Transport Protocol Parser"
+description = "Pāṇini grammar in 10 columns. One pipe row → one sentence."
 readme = "../../README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
@@ -18,11 +18,9 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
-[project.optional-dependencies]
-pydantic = ["pydantic>=2.0.0"]
-langchain = ["langchain-core>=0.3.0"]
-all = ["pydantic>=2.0.0", "langchain-core>=0.3.0"]
-
 [project.urls]
-Homepage = "https://ashru.dev"
+Homepage = "https://json2ashru.com"
 Repository = "https://github.com/ashru-format/ashru-format"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ashru"]

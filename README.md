@@ -1,105 +1,95 @@
-# ASHRU — Atomic Semantic Hyper-Relational Unit
+# ashru
 
-[![License: MIT](https://img.shields.io/badge/parsers-MIT-yellow.svg)](LICENSE)
-[![Spec License: CC0](https://img.shields.io/badge/spec-CC0%20public%20domain-blue.svg)](SPEC.md)
+> Pāṇini grammar in 10 columns. One pipe row → one sentence.
 
-ASHRU is a positional, pipe-delimited wire format for emitting structured fact records from large language models (LLMs). One line per fact, ten columns mapped to grammatical case roles formalized in Pāṇini's *Aṣṭādhyāyī* (~5th century BCE).
+`ashru` is a tiny Python package that reads ASHRU/1 — a 10-column,
+pipe-delimited fact format — and turns each row into a Python object or a
+natural-language sentence. You can ask any LLM to emit ASHRU instead of
+JSON; the output is **~80% smaller** because columns are positional, not
+keyed. The reverse direction (prose → ASHRU) is your LLM's job, not this
+library's.
 
-> **Playground:** [json2ashru.com](https://json2ashru.com)
+## Install
 
-*Named in honor of Sanskrit अश्रु ("ashru") — the distilled essence, a tear that holds the whole.*
-
-## Why ASHRU
-
-When extracting fact-shaped information from text using an LLM, JSON forces the model to spend output tokens on braces, quotes, commas, and repeated key names. ASHRU drops the keys (column positions carry meaning) and uses a single delimiter, reducing emission cost meaningfully at production volume.
-
-**JSON output (~120 tokens):**
-
-```json
-{
-  "verbs": [
-    {
-      "verb_lemma": "buy",
-      "kartā": "Suman",
-      "karma": "Tesla",
-      "karaṇa": "$60,000"
-    }
-  ]
-}
+```bash
+pip install ashru
 ```
 
-**ASHRU/1 output (~25 tokens):**
+## How to use it (3 steps)
 
-```text
+### 1. Add the prompt instruction to your existing LLM call
+
+```python
+import ashru
+import openai  # or anthropic, google.generativeai, anything
+
+response = openai.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[
+        {"role": "system", "content": ashru.PROMPT_INSTRUCTION},
+        {"role": "user",   "content": "Suman bought a Tesla from John in SF for $60000 last week."},
+    ],
+)
+text = response.choices[0].message.content
+```
+
+`ashru.PROMPT_INSTRUCTION` is a ~25-line string that tells the model to
+emit pipe rows in the 10-column format. Drop it into your existing prompt
+unchanged.
+
+### 2. Parse the LLM's reply
+
+```python
+doc = ashru.parse(text)
+
+for v in doc.verbs:
+    print(v.karta, v.verb_lemma, v.karma, v.tense)
+```
+
+### 3. Or read each fact as a sentence
+
+```python
+for v in doc.verbs:
+    print(ashru.to_sentence(v))
+# → "Suman bought Tesla with $60000 from John at SF (date=2026-05-07)."
+```
+
+## What the LLM emits
+
+```
 ASHRU/1
-V|buy|Suman|Tesla|$60000||||p|0|
+V|buy|Suman|Tesla|$60000||John|SF|p|0|date=2026-05-07
+V|deploy|engineer|api||||staging|f|0|
+V|validate|fn_authenticate|user_token|||||n|0|
 ```
 
-Same fact. Roughly 4× smaller in token count under the OpenAI `cl100k_base` tokenizer.
+Each row has 10 fields after the leading `V`, in this fixed order:
 
-## The format in one paragraph
+| # | Column       | Pāṇini role | Plain English        |
+|---|--------------|-------------|----------------------|
+| 1 | `verb_lemma` | dhātu       | the verb (lowercase) |
+| 2 | `karta`      | kartā       | who did it           |
+| 3 | `karma`      | karma       | what was done        |
+| 4 | `karana`     | karaṇa      | with what            |
+| 5 | `sampradana` | sampradāna  | to whom              |
+| 6 | `apadana`    | apādāna     | from where/whom      |
+| 7 | `adhikarana` | adhikaraṇa  | where                |
+| 8 | `tense`      | —           | `p`/`n`/`f`/`c`      |
+| 9 | `negated`    | —           | `1` or `0`           |
+| 10| `attributes` | —           | `k=v;k=v` or empty   |
 
-Every ASHRU document begins with the line `ASHRU/1`. Each subsequent fact is one line: `V|verb|kartā|karma|karaṇa|sampradāna|apādāna|adhikaraṇa|tense|negated|attributes`. Columns are separated by `|`. Empty columns stay empty (`||`). Pipes inside values are escaped as `\|`. Tense uses `p|n|f|c`. Negation is `0` or `1`. Attributes are free `key=value;key=value`.
+Empty columns are written as adjacent pipes `||`. A literal `|` inside a
+value is escaped as `\|`. The first line of every document MUST be
+`ASHRU/1`. Lines starting with `#` are comments.
 
-The full spec is in [`SPEC.md`](SPEC.md).
+## Why this exists
 
-## Reference parsers
-
-| Language | Path | License |
-|---|---|---|
-| Python | [`parsers/python/`](parsers/python/) | MIT |
-| JavaScript | [`parsers/javascript/`](parsers/javascript/) | MIT |
-
-Each is small, zero runtime dependencies, and passes the conformance suite under `tests/v1.0/`.
-
-## Repository layout
-
-```
-ashru-format/
-├── SPEC.md                          The wire format specification (CC0)
-├── LICENSE                          MIT for parsers and tests
-├── parsers/
-│   ├── python/                      Python reference parser
-│   └── javascript/                  JavaScript reference parser
-├── tests/v1.0/                      Conformance suite (both parsers)
-├── benchmarks/                      Token-cost + parser-throughput benchmarks
-└── examples/
-    ├── 01-chat-message.ashru        Simple fact extraction
-    ├── 04-negation-and-conditional.ashru
-    └── extract_batch.py             BYOK CLI for Gemini/OpenAI/Anthropic
-```
-
-## Run the conformance suite
-
-```bash
-git clone https://github.com/ashru-format/ashru-format
-cd ashru-format
-
-python3 tests/v1.0/run_python.py
-node    tests/v1.0/run_javascript.mjs
-```
-
-## Run the benchmarks
-
-```bash
-pip install tiktoken
-python3 benchmarks/run_benchmark.py --records 1000
-```
-
-Real numbers, real tokenizer (`tiktoken cl100k_base`), reproducible.
-
-## Linguistic provenance
-
-Pāṇini formalized the six kāraka case roles in his *Aṣṭādhyāyī* around the 5th century BCE: *kartā* (agent), *karma* (object), *karaṇa* (instrument), *sampradāna* (recipient), *apādāna* (source), *adhikaraṇa* (locative). Rick Briggs at NASA Ames published in 1985 *(AI Magazine,* Vol. 6, No. 1) that these six roles map cleanly onto knowledge representation in artificial intelligence. ASHRU is a 21st-century wire format for that 2,500-year-old grammatical observation.
+LLM API pricing charges per output token. JSON output spends most of its
+tokens on repeated keys and braces — 1,000 records × `"verb_lemma":` is
+1,000× the same word. ASHRU drops the keys (column position carries the
+meaning) and the braces (one row per fact, line-delimited). Same fact,
+~⅕ the bytes, at the slice of your bill that's most expensive.
 
 ## License
 
-- **Specification:** CC0 1.0 Universal — public domain
-- **Reference parsers + tests:** MIT
-- **Benchmarks + examples:** MIT
-
-Use freely. No attribution required, though acknowledgment is appreciated.
-
-## Reach
-
-Questions, criticism, ideas — open an issue or use Discussions.
+MIT. Use it however you want.
