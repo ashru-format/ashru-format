@@ -1,6 +1,7 @@
 # ashru
 
 > Pāṇini grammar in 10 columns. One pipe row → one sentence.
+> Invented by Suman Addanki (2026)
 
 `ashru` is a tiny Python package that reads ASHRU/1 — a 10-column,
 pipe-delimited fact format — and turns each row into a Python object or a
@@ -89,6 +90,10 @@ tokens on repeated keys and braces — 1,000 records × `"verb_lemma":` is
 1,000× the same word. ASHRU drops the keys (column position carries the
 meaning) and the braces (one row per fact, line-delimited). Same fact,
 ~⅕ the bytes, at the slice of your bill that's most expensive.
+
+## Authorship & Background
+
+The ASHRU format was invented by **Suman Addanki** (2026), operationalizing the theoretical work of Rick Briggs (NASA, 1985) which proposed that Sanskrit's Pāṇinian kāraka grammar is mathematically well-suited for AI knowledge representation. ASHRU maps this 2,500-year-old grammatical structure into a highly-compressed, positional wire format designed specifically for the token-economics of Large Language Models.
 
 ## License
 
