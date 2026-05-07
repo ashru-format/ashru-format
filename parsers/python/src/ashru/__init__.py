@@ -60,6 +60,7 @@ value is escaped as \\|. A literal backslash is escaped as \\\\.
 
 The first line of the document MUST be: ASHRU/1
 Do not add prose, JSON, or markdown around the rows. Pipe rows only.
+NEVER wrap the output in markdown code blocks (no ```ashru, no ```).
 
 Example:
 ASHRU/1
@@ -228,8 +229,9 @@ def _parse_lines(lines: Iterator[str], strict: bool = False) -> AshruDocument:
             else:
                 doc.verbs.append(v)
             continue
-        if strict:
-            raise ValueError(f"Unknown leading marker in row: {line!r}")
+        # Any non-V marker (or stray prose) is silently skipped, even in
+        # strict mode. LLMs occasionally emit unrecognized leading tokens
+        # from older training data; the document survives.
         doc.skipped_lines += 1
     return doc
 

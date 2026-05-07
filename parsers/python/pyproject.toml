@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "ashru"
 version = "1.0.0"
 description = "Pāṇini grammar in 10 columns. One pipe row → one sentence."
-readme = "../../README.md"
+readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [
