@@ -1,0 +1,24 @@
+# ASHRU vs JSON benchmark — 1000 records
+
+**Tokenizer:** tiktoken cl100k_base (real)
+
+## Bytes & tokens
+
+| metric | JSON | ASHRU | ASHRU vs JSON |
+|---|---:|---:|---:|
+| records | 1000 | 1000 | — |
+| bytes total | 169886 | 45882 | 0.27x |
+| bytes / record | 169.9 | 45.9 | 0.27x |
+| tokens total | 71629 | 21005 | 0.29x |
+| tokens / record | 71.63 | 21.0 | 0.29x |
+
+## Cost per 1M records (output side, May 2026 rates)
+
+| model | JSON $/1M | ASHRU $/1M | saved |
+|---|---:|---:|---:|
+| gemini-2.5-flash-lite | $28.65 | $8.40 | $20.25 |
+| gemini-2.5-flash | $179.07 | $52.51 | $126.56 |
+| gpt-4o-mini | $42.98 | $12.60 | $30.37 |
+| gpt-4o | $716.29 | $210.05 | $506.24 |
+| claude-haiku-4.5 | $358.14 | $105.02 | $253.12 |
+| claude-sonnet-4.6 | $1,074.43 | $315.07 | $759.36 |

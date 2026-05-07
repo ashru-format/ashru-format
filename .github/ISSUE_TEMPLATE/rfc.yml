@@ -1,0 +1,62 @@
+name: RFC — Protocol Change Proposal
+description: Propose a non-trivial change to the ASHRU specification (new column, new line marker, schema evolution, semantics change).
+title: "[RFC] "
+labels: ["rfc", "protocol-change"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template **only** for changes to `SPEC.md`. For parser bugs use the bug template; for parser features use the feature template.
+
+        Per `GOVERNANCE.md`, an RFC must include a reference implementation against `strict=True` parsers and runs through a 14-day review window before merge.
+  - type: input
+    id: title
+    attributes:
+      label: One-line summary
+      placeholder: "Add an 11th column for confidence score"
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: What problem does this solve? Who hits it today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Exact spec language (delta to `SPEC.md`). Be precise — this is what reviewers will reason about.
+    validations:
+      required: true
+  - type: textarea
+    id: backcompat
+    attributes:
+      label: Backward compatibility
+      description: How does a v1 parser handle this when reading a v-next document? How does a v-next parser handle a v1 document? Reference `SPEC.md §5` if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: refimpl
+    attributes:
+      label: Reference implementation
+      description: Link to a branch / PR that adds this to either `parsers/python/` or `parsers/javascript/` plus updates `tests/v1.0/conformance.json`. RFCs without a working ref-impl will not be merged.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What else did you try? Why isn't a parser-level helper sufficient?
+  - type: checkboxes
+    id: governance
+    attributes:
+      label: Governance checklist
+      options:
+        - label: I have read `GOVERNANCE.md`
+          required: true
+        - label: This proposal does not require breaking changes to v1, OR it bumps the version per `SPEC.md §5`
+          required: true
+        - label: I will keep this issue open for at least 14 days for community review
+          required: true

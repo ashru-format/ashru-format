@@ -1,0 +1,29 @@
+name: Bug Report
+description: Report an issue with an ASHRU parser or the protocol spec
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Thank you for reporting an issue. Please ensure you are testing against the `strict=True` conformance rules."
+  - type: input
+    id: version
+    attributes:
+      label: Parser Version (Python/Node)
+      placeholder: "e.g., v1.0.1"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened? What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction Code / ASHRU Tuple
+      description: Provide the exact ASHRU string that failed parsing.
+    validations:
+      required: true

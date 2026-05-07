@@ -1,0 +1,47 @@
+{
+  "name": "@ashru/parser",
+  "version": "1.0.0",
+  "description": "ASHRU Semantic Transport Protocol — reference parser (zero deps, MIT)",
+  "type": "module",
+  "main": "./ashru.js",
+  "exports": {
+    ".": {
+      "import": "./ashru.js",
+      "require": "./ashru.cjs",
+      "default": "./ashru.js"
+    }
+  },
+  "files": [
+    "ashru.js",
+    "ashru.cjs",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "ashru",
+    "llm",
+    "ai",
+    "semantic",
+    "transport",
+    "protocol",
+    "knowledge-graph",
+    "panini",
+    "karaka"
+  ],
+  "author": "Suman Addanki",
+  "license": "MIT",
+  "homepage": "https://ashru.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ashru-format/ashru-format.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ashru-format/ashru-format/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test tests/"
+  }
+}

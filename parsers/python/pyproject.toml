@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ashru"
+version = "1.0.0"
+description = "ASHRU Semantic Transport Protocol Parser"
+readme = "../../README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "Suman Addanki" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+pydantic = ["pydantic>=2.0.0"]
+langchain = ["langchain-core>=0.3.0"]
+all = ["pydantic>=2.0.0", "langchain-core>=0.3.0"]
+
+[project.urls]
+Homepage = "https://ashru.dev"
+Repository = "https://github.com/ashru-format/ashru-format"

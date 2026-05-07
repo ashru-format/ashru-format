@@ -1,0 +1,22 @@
+name: RFC / Feature Request
+description: Propose a change to the ASHRU protocol or parsers
+title: "[RFC] "
+labels: ["enhancement", "rfc"]
+body:
+  - type: markdown
+    attributes:
+      value: "Before submitting an RFC, please review `GOVERNANCE.md`. All breaking changes to the protocol must go through the RFC process."
+  - type: textarea
+    id: problem
+    attributes:
+      label: The Problem
+      description: What limitation in the current ASHRU format are you trying to solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: Detail your proposed change to the syntax or parsing rules.
+    validations:
+      required: true

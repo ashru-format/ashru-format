@@ -1,0 +1,4 @@
+ASHRU/1
+# A single chat-style message extracted into one verb.
+# Source sentence: "Suman bought a Tesla yesterday from John in SF for $60,000."
+V|buy|Suman|Tesla|$60000||John|SF|p|0|date=2026-05-05;currency=USD

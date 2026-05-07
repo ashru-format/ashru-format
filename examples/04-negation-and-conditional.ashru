@@ -1,0 +1,11 @@
+ASHRU/1
+# Negation: "I did NOT buy the Tesla." — column 9 = 1.
+# Without is_negated, schema would store the OPPOSITE of reality.
+V|buy|Suman|Tesla|||||p|1|
+
+# Conditional: "I would buy a Tesla if the price drops below $50K."
+# Column 8 = c → retrievers down-weight as a hypothetical, not a realized fact.
+V|buy|Suman|Tesla|$50000||||c|0|condition=price_drops
+
+# Future intent: "I will deploy the API tomorrow."
+V|deploy|engineer|api||||staging|f|0|date=2026-05-07

@@ -1,0 +1,90 @@
+{
+  "version": "ASHRU/1",
+  "description": "Conformance test suite for ASHRU/1 — reference cases every parser MUST pass.",
+  "cases": [
+    {
+      "id": "01-basic-row",
+      "input": "ASHRU/1\nV|buy|Suman|Tesla|$60000||John|SF|p|0|date=2026-05-05",
+      "expect": {
+        "verb_count": 1,
+        "first_verb": {
+          "verb_lemma": "buy",
+          "karta": "Suman",
+          "karma": "Tesla",
+          "karana": "$60000",
+          "apadana": "John",
+          "adhikarana": "SF",
+          "tense": "p",
+          "is_negated": false,
+          "attributes": { "date": "2026-05-05" }
+        }
+      }
+    },
+    {
+      "id": "02-pipe-escape-roundtrip",
+      "input": "ASHRU/1\nV|hire|Acme|Suman \\| CEO|||||p|0|",
+      "expect": {
+        "verb_count": 1,
+        "first_verb": { "karma": "Suman | CEO" }
+      }
+    },
+    {
+      "id": "03-backslash-escape",
+      "input": "ASHRU/1\nV|store|user|path \\\\ here|||||p|0|",
+      "expect": {
+        "verb_count": 1,
+        "first_verb": { "karma": "path \\ here" }
+      }
+    },
+    {
+      "id": "04-malformed-tolerant",
+      "input": "ASHRU/1\nV|buy|Suman|Tesla\nV|sell|Suman|Tesla|||||p|0|",
+      "expect": {
+        "verb_count": 1,
+        "skipped_lines": 1
+      }
+    },
+    {
+      "id": "05-malformed-strict",
+      "input": "ASHRU/1\nV|buy|Suman|Tesla\nV|sell|Suman|Tesla|||||p|0|",
+      "strict": true,
+      "expect_throws": true
+    },
+    {
+      "id": "06-negation",
+      "input": "ASHRU/1\nV|buy|Suman|Tesla|||||p|1|",
+      "expect": {
+        "verb_count": 1,
+        "first_verb": { "is_negated": true }
+      }
+    },
+    {
+      "id": "07-comment-skip",
+      "input": "ASHRU/1\n# this is a comment\nV|act|x|y|||||p|0|",
+      "expect": {
+        "verb_count": 1
+      }
+    },
+    {
+      "id": "08-empty-attributes",
+      "input": "ASHRU/1\nV|act|x|y|||||p|0|",
+      "expect": {
+        "verb_count": 1,
+        "first_verb": { "attributes": {} }
+      }
+    },
+    {
+      "id": "09-multi-attribute",
+      "input": "ASHRU/1\nV|buy|Suman|Tesla|||||p|0|price=60000;currency=USD;model=Y",
+      "expect": {
+        "verb_count": 1,
+        "first_verb": { "attributes": { "price": "60000", "currency": "USD", "model": "Y" } }
+      }
+    },
+    {
+      "id": "10-bad-header-rejected",
+      "input": "ASHRU/9\nV|act|x|y|||||p|0|",
+      "expect_throws": true
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+# Editor
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Node (for any future tooling)
+node_modules/
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Vercel
+.vercel/
